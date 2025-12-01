@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -35,7 +36,7 @@ const dataURLtoFile = (dataurl: string, filename: string): File => {
 
 type Tab = 'retouch' | 'adjust' | 'filters' | 'crop';
 type ViewMode = 'editor' | 'generator';
-type VariationType = 'Studio' | 'Lighting' | 'Urban' | 'Nature' | 'Creative';
+type VariationType = 'Studio' | 'Lighting' | 'Simple' | 'Nature' | 'Creative';
 
 interface VariationResult {
   type: VariationType;
@@ -45,7 +46,7 @@ interface VariationResult {
 }
 
 const App: React.FC = () => {
-  const [viewMode, setViewMode] = useState<ViewMode>('editor');
+  const [viewMode, setViewMode] = useState<ViewMode>('generator');
 
   // --- EDITOR STATE ---
   const [history, setHistory] = useState<File[]>([]);
@@ -69,10 +70,19 @@ const App: React.FC = () => {
   const [variations, setVariations] = useState<VariationResult[]>([
     { type: 'Studio', url: null, loading: false, error: null },
     { type: 'Lighting', url: null, loading: false, error: null },
-    { type: 'Urban', url: null, loading: false, error: null },
+    { type: 'Simple', url: null, loading: false, error: null },
     { type: 'Nature', url: null, loading: false, error: null },
     { type: 'Creative', url: null, loading: false, error: null },
   ]);
+
+  // Translate variation types for display
+  const variationLabels: Record<VariationType, string> = {
+      'Studio': 'Estudio Minimalista',
+      'Lighting': 'Iluminación Solar',
+      'Simple': 'Color Sólido',
+      'Nature': 'Naturaleza',
+      'Creative': 'Creativo Pop-Art'
+  };
 
   // Magic Resize State
   const [resizeModalOpen, setResizeModalOpen] = useState(false);
@@ -179,7 +189,7 @@ const App: React.FC = () => {
       } catch (e: any) {
          setVariations(prev => {
           const next = [...prev];
-          next[index] = { ...next[index], error: e.message || 'Failed', loading: false };
+          next[index] = { ...next[index], error: e.message || 'Falló', loading: false };
           return next;
         });
       }
@@ -208,17 +218,17 @@ const App: React.FC = () => {
 
   const handleGenerate = useCallback(async () => {
     if (!currentImage) {
-      setError('No image loaded to edit.');
+      setError('No hay imagen cargada para editar.');
       return;
     }
     
     if (!prompt.trim()) {
-        setError('Please enter a description for your edit.');
+        setError('Por favor ingresa una descripción para tu edición.');
         return;
     }
 
     if (!editHotspot) {
-        setError('Please click on the image to select an area to edit.');
+        setError('Por favor haz clic en la imagen para seleccionar un área a editar.');
         return;
     }
 
@@ -232,8 +242,8 @@ const App: React.FC = () => {
         setEditHotspot(null);
         setDisplayHotspot(null);
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setError(`Failed to generate the image. ${errorMessage}`);
+        const errorMessage = err instanceof Error ? err.message : 'Ocurrió un error desconocido.';
+        setError(`Error al generar la imagen. ${errorMessage}`);
         console.error(err);
     } finally {
         setIsLoading(false);
@@ -242,7 +252,7 @@ const App: React.FC = () => {
   
   const handleApplyFilter = useCallback(async (filterPrompt: string) => {
     if (!currentImage) {
-      setError('No image loaded to apply a filter to.');
+      setError('No hay imagen cargada para aplicar un filtro.');
       return;
     }
     
@@ -254,8 +264,8 @@ const App: React.FC = () => {
         const newImageFile = dataURLtoFile(filteredImageUrl, `filtered-${Date.now()}.png`);
         addImageToHistory(newImageFile);
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setError(`Failed to apply the filter. ${errorMessage}`);
+        const errorMessage = err instanceof Error ? err.message : 'Ocurrió un error desconocido.';
+        setError(`Error al aplicar el filtro. ${errorMessage}`);
         console.error(err);
     } finally {
         setIsLoading(false);
@@ -264,7 +274,7 @@ const App: React.FC = () => {
   
   const handleApplyAdjustment = useCallback(async (adjustmentPrompt: string) => {
     if (!currentImage) {
-      setError('No image loaded to apply an adjustment to.');
+      setError('No hay imagen cargada para aplicar un ajuste.');
       return;
     }
     
@@ -276,8 +286,8 @@ const App: React.FC = () => {
         const newImageFile = dataURLtoFile(adjustedImageUrl, `adjusted-${Date.now()}.png`);
         addImageToHistory(newImageFile);
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-        setError(`Failed to apply the adjustment. ${errorMessage}`);
+        const errorMessage = err instanceof Error ? err.message : 'Ocurrió un error desconocido.';
+        setError(`Error al aplicar el ajuste. ${errorMessage}`);
         console.error(err);
     } finally {
         setIsLoading(false);
@@ -286,7 +296,7 @@ const App: React.FC = () => {
 
   const handleApplyCrop = useCallback(() => {
     if (!completedCrop || !imgRef.current) {
-        setError('Please select an area to crop.');
+        setError('Por favor selecciona un área para recortar.');
         return;
     }
 
@@ -300,7 +310,7 @@ const App: React.FC = () => {
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-        setError('Could not process the crop.');
+        setError('No se pudo procesar el recorte.');
         return;
     }
 
@@ -367,7 +377,7 @@ const App: React.FC = () => {
       if (imgFile) {
           const link = document.createElement('a');
           link.href = URL.createObjectURL(imgFile);
-          link.download = `pixshop-${imgFile.name}`;
+          link.download = `calmeditor-${imgFile.name}`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -401,18 +411,25 @@ const App: React.FC = () => {
 
     setEditHotspot({ x: originalX, y: originalY });
 };
+  
+  const tabLabels: Record<Tab, string> = {
+      retouch: 'Retoque',
+      crop: 'Recortar',
+      adjust: 'Ajustes',
+      filters: 'Filtros'
+  };
 
   const renderAdGenerator = () => {
     if (!adBaseImage) {
         return (
             <div className="flex flex-col items-center justify-center w-full min-h-[50vh] p-8">
                 <div className="max-w-xl text-center space-y-6">
-                    <h2 className="text-3xl font-bold text-gray-100">Meta Ad Variation Generator</h2>
-                    <p className="text-gray-400">Upload your creative to automatically generate 5 distinct, high-quality variations optimized for advertising. Change backgrounds, lighting, and style in one click.</p>
+                    <h2 className="text-3xl font-bold text-gray-100">Generador de Variaciones para Meta</h2>
+                    <p className="text-gray-400">Sube tu creativo para generar automáticamente 5 variaciones distintas y de alta calidad optimizadas para publicidad. Cambia fondos, iluminación y estilo con un solo clic.</p>
                      <div className="flex flex-col items-center gap-4">
                         <label className="relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-full cursor-pointer hover:bg-blue-500 transition-colors">
                             <UploadIcon className="w-6 h-6 mr-3" />
-                            Upload Creative
+                            Subir Creativo
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleAdImageUpload(e.target.files[0])} />
                         </label>
                     </div>
@@ -426,7 +443,7 @@ const App: React.FC = () => {
             <div className="flex flex-col md:flex-row gap-8 items-start">
                  {/* Original Image Section */}
                 <div className="w-full md:w-1/3 flex flex-col gap-4">
-                     <h3 className="text-xl font-bold text-gray-200">Original Creative</h3>
+                     <h3 className="text-xl font-bold text-gray-200">Creativo Original</h3>
                      <div className="relative rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-black/20 group">
                          {adBaseImageUrl && <img src={adBaseImageUrl} alt="Original" className="w-full h-auto object-cover" />}
                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
@@ -435,7 +452,7 @@ const App: React.FC = () => {
                                 className="bg-purple-600/90 text-white font-semibold px-4 py-2 rounded-full text-sm hover:bg-purple-500 flex items-center gap-2"
                              >
                                 <ResizeIcon className="w-4 h-4" />
-                                Magic Resize
+                                Redimensión Mágica
                              </button>
                          </div>
                      </div>
@@ -444,18 +461,18 @@ const App: React.FC = () => {
                         disabled={variations.some(v => v.loading)}
                         className="w-full bg-gradient-to-br from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-4 px-6 rounded-lg shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                      >
-                        {variations.some(v => v.loading) ? 'Generating...' : 'Generate 5 Variations'}
+                        {variations.some(v => v.loading) ? 'Generando...' : 'Generar 5 Variaciones'}
                      </button>
-                     <button onClick={handleUploadNew} className="text-sm text-gray-400 hover:text-white underline text-center">Upload Different Image</button>
+                     <button onClick={handleUploadNew} className="text-sm text-gray-400 hover:text-white underline text-center">Subir Otra Imagen</button>
                 </div>
 
                 {/* Grid Section */}
                  <div className="w-full md:w-2/3 flex flex-col gap-4">
-                    <h3 className="text-xl font-bold text-gray-200">Ad Variations</h3>
+                    <h3 className="text-xl font-bold text-gray-200">Variaciones de Ad</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {variations.map((variation, idx) => (
                             <div key={variation.type} className="flex flex-col gap-2 bg-gray-800/40 p-3 rounded-xl border border-gray-700/50">
-                                <span className="text-sm font-semibold text-gray-300">{variation.type}</span>
+                                <span className="text-sm font-semibold text-gray-300">{variationLabels[variation.type]}</span>
                                 <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-gray-900/50 flex items-center justify-center group">
                                     {variation.loading ? (
                                         <Spinner />
@@ -468,28 +485,28 @@ const App: React.FC = () => {
                                                     onClick={() => handleEditVariation(variation.url!)}
                                                     className="w-full bg-white/90 text-black font-semibold px-4 py-2 rounded-lg text-xs hover:bg-white"
                                                 >
-                                                    Edit / Crop
+                                                    Editar / Recortar
                                                 </button>
                                                 <button 
                                                     onClick={() => handleOpenMagicResize(variation.url!)}
                                                     className="w-full bg-purple-600/90 text-white font-semibold px-4 py-2 rounded-lg text-xs hover:bg-purple-500 flex items-center justify-center gap-2"
                                                 >
                                                     <ResizeIcon className="w-3 h-3" />
-                                                    Magic Resize
+                                                    Redimensión
                                                 </button>
                                                 <a 
                                                     href={variation.url} 
                                                     download={`ad-variation-${variation.type}.png`}
                                                     className="text-gray-300 text-xs hover:underline mt-1"
                                                 >
-                                                    Download
+                                                    Descargar
                                                 </a>
                                             </div>
                                         </>
                                     ) : variation.error ? (
                                         <div className="text-red-400 text-xs text-center p-2">{variation.error}</div>
                                     ) : (
-                                        <div className="text-gray-600 text-xs text-center">Waiting to generate</div>
+                                        <div className="text-gray-600 text-xs text-center">Esperando para generar</div>
                                     )}
                                 </div>
                             </div>
@@ -511,13 +528,13 @@ const App: React.FC = () => {
     if (error) {
        return (
            <div className="text-center animate-fade-in bg-red-500/10 border border-red-500/20 p-8 rounded-lg max-w-2xl mx-auto flex flex-col items-center gap-4">
-            <h2 className="text-2xl font-bold text-red-300">An Error Occurred</h2>
+            <h2 className="text-2xl font-bold text-red-300">Ocurrió un error</h2>
             <p className="text-md text-red-400">{error}</p>
             <button
                 onClick={() => setError(null)}
                 className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg text-md transition-colors"
               >
-                Try Again
+                Intentar de nuevo
             </button>
           </div>
         );
@@ -568,7 +585,7 @@ const App: React.FC = () => {
             {isLoading && (
                 <div className="absolute inset-0 bg-black/70 z-30 flex flex-col items-center justify-center gap-4 animate-fade-in">
                     <Spinner />
-                    <p className="text-gray-300">AI is working its magic...</p>
+                    <p className="text-gray-300">La IA está haciendo su magia...</p>
                 </div>
             )}
             
@@ -605,7 +622,7 @@ const App: React.FC = () => {
                         : 'text-gray-300 hover:text-white hover:bg-white/10'
                     }`}
                 >
-                    {tab}
+                    {tabLabels[tab]}
                 </button>
             ))}
         </div>
@@ -614,14 +631,14 @@ const App: React.FC = () => {
             {activeTab === 'retouch' && (
                 <div className="flex flex-col items-center gap-4">
                     <p className="text-md text-gray-400">
-                        {editHotspot ? 'Great! Now describe your localized edit below.' : 'Click an area on the image to make a precise edit.'}
+                        {editHotspot ? '¡Genial! Ahora describe tu edición localizada abajo.' : 'Haz clic en un área de la imagen para hacer una edición precisa.'}
                     </p>
                     <form onSubmit={(e) => { e.preventDefault(); handleGenerate(); }} className="w-full flex items-center gap-2">
                         <input
                             type="text"
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
-                            placeholder={editHotspot ? "e.g., 'change my shirt color to blue'" : "First click a point on the image"}
+                            placeholder={editHotspot ? "ej. 'cambia el color de mi camisa a azul'" : "Primero haz clic en un punto de la imagen"}
                             className="flex-grow bg-gray-800 border border-gray-700 text-gray-200 rounded-lg p-5 text-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition w-full disabled:cursor-not-allowed disabled:opacity-60"
                             disabled={isLoading || !editHotspot}
                         />
@@ -630,7 +647,7 @@ const App: React.FC = () => {
                             className="bg-gradient-to-br from-blue-600 to-blue-500 text-white font-bold py-5 px-8 text-lg rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner disabled:from-blue-800 disabled:to-blue-700 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
                             disabled={isLoading || !prompt.trim() || !editHotspot}
                         >
-                            Generate
+                            Generar
                         </button>
                     </form>
                 </div>
@@ -648,7 +665,7 @@ const App: React.FC = () => {
                 aria-label="Undo last action"
             >
                 <UndoIcon className="w-5 h-5 mr-2" />
-                Undo
+                Deshacer
             </button>
             <button 
                 onClick={handleRedo}
@@ -657,7 +674,7 @@ const App: React.FC = () => {
                 aria-label="Redo last action"
             >
                 <RedoIcon className="w-5 h-5 mr-2" />
-                Redo
+                Rehacer
             </button>
             
             <div className="h-6 w-px bg-gray-600 mx-1 hidden sm:block"></div>
@@ -673,7 +690,7 @@ const App: React.FC = () => {
                   aria-label="Press and hold to see original image"
               >
                   <EyeIcon className="w-5 h-5 mr-2" />
-                  Compare
+                  Comparar
               </button>
             )}
 
@@ -682,20 +699,20 @@ const App: React.FC = () => {
                 disabled={!canUndo}
                 className="text-center bg-transparent border border-white/20 text-gray-200 font-semibold py-3 px-5 rounded-md transition-all duration-200 ease-in-out hover:bg-white/10 hover:border-white/30 active:scale-95 text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent"
               >
-                Reset
+                Reiniciar
             </button>
             <button 
                 onClick={handleUploadNew}
                 className="text-center bg-white/10 border border-white/20 text-gray-200 font-semibold py-3 px-5 rounded-md transition-all duration-200 ease-in-out hover:bg-white/20 hover:border-white/30 active:scale-95 text-base"
             >
-                Upload New
+                Subir Nueva
             </button>
 
             <button 
                 onClick={() => handleDownload(currentImage)}
                 className="flex-grow sm:flex-grow-0 ml-auto bg-gradient-to-br from-green-600 to-green-500 text-white font-bold py-3 px-5 rounded-md transition-all duration-300 ease-in-out shadow-lg shadow-green-500/20 hover:shadow-xl hover:shadow-green-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner text-base"
             >
-                Download Image
+                Descargar Imagen
             </button>
         </div>
       </div>

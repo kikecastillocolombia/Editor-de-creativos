@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -15,9 +16,9 @@ const fileToPart = async (file: File): Promise<{ inlineData: { mimeType: string;
     });
     
     const arr = dataUrl.split(',');
-    if (arr.length < 2) throw new Error("Invalid data URL");
+    if (arr.length < 2) throw new Error("URL de datos inválida");
     const mimeMatch = arr[0].match(/:(.*?);/);
-    if (!mimeMatch || !mimeMatch[1]) throw new Error("Could not parse MIME type from data URL");
+    if (!mimeMatch || !mimeMatch[1]) throw new Error("No se pudo analizar el tipo MIME de la URL de datos");
     
     const mimeType = mimeMatch[1];
     const data = arr[1];
@@ -31,7 +32,7 @@ const handleApiResponse = (
     // 1. Check for prompt blocking first
     if (response.promptFeedback?.blockReason) {
         const { blockReason, blockReasonMessage } = response.promptFeedback;
-        const errorMessage = `Request was blocked. Reason: ${blockReason}. ${blockReasonMessage || ''}`;
+        const errorMessage = `La solicitud fue bloqueada. Razón: ${blockReason}. ${blockReasonMessage || ''}`;
         console.error(errorMessage, { response });
         throw new Error(errorMessage);
     }
@@ -41,25 +42,25 @@ const handleApiResponse = (
 
     if (imagePartFromResponse?.inlineData) {
         const { mimeType, data } = imagePartFromResponse.inlineData;
-        console.log(`Received image data (${mimeType}) for ${context}`);
+        console.log(`Imagen recibida (${mimeType}) para ${context}`);
         return `data:${mimeType};base64,${data}`;
     }
 
     // 3. If no image, check for other reasons
     const finishReason = response.candidates?.[0]?.finishReason;
     if (finishReason && finishReason !== 'STOP') {
-        const errorMessage = `Image generation for ${context} stopped unexpectedly. Reason: ${finishReason}. This often relates to safety settings.`;
+        const errorMessage = `La generación de imagen para ${context} se detuvo inesperadamente. Razón: ${finishReason}. Esto suele relacionarse con configuraciones de seguridad.`;
         console.error(errorMessage, { response });
         throw new Error(errorMessage);
     }
     
     const textFeedback = response.text?.trim();
-    const errorMessage = `The AI model did not return an image for the ${context}. ` + 
+    const errorMessage = `El modelo de IA no devolvió una imagen para ${context}. ` + 
         (textFeedback 
-            ? `The model responded with text: "${textFeedback}"`
-            : "This can happen due to safety filters or if the request is too complex. Please try rephrasing your prompt to be more direct.");
+            ? `El modelo respondió con texto: "${textFeedback}"`
+            : "Esto puede suceder debido a filtros de seguridad o si la solicitud es demasiado compleja. Intenta reformular tu instrucción.");
 
-    console.error(`Model response did not contain an image part for ${context}.`, { response });
+    console.error(`La respuesta del modelo no contenía una parte de imagen para ${context}.`, { response });
     throw new Error(errorMessage);
 };
 
@@ -75,7 +76,7 @@ export const generateEditedImage = async (
     userPrompt: string,
     hotspot: { x: number, y: number }
 ): Promise<string> => {
-    console.log('Starting generative edit at:', hotspot);
+    console.log('Iniciando edición generativa en:', hotspot);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
@@ -94,14 +95,14 @@ Safety & Ethics Policy:
 Output: Return ONLY the final edited image. Do not return text.`;
     const textPart = { text: prompt };
 
-    console.log('Sending image and prompt to the model...');
+    console.log('Enviando imagen e instrucción al modelo...');
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [originalImagePart, textPart] },
     });
-    console.log('Received response from model.', response);
+    console.log('Respuesta recibida del modelo.', response);
 
-    return handleApiResponse(response, 'edit');
+    return handleApiResponse(response, 'edición');
 };
 
 /**
@@ -114,7 +115,7 @@ export const generateFilteredImage = async (
     originalImage: File,
     filterPrompt: string,
 ): Promise<string> => {
-    console.log(`Starting filter generation: ${filterPrompt}`);
+    console.log(`Iniciando generación de filtro: ${filterPrompt}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
@@ -128,14 +129,14 @@ Safety & Ethics Policy:
 Output: Return ONLY the final filtered image. Do not return text.`;
     const textPart = { text: prompt };
 
-    console.log('Sending image and filter prompt to the model...');
+    console.log('Enviando imagen y filtro al modelo...');
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [originalImagePart, textPart] },
     });
-    console.log('Received response from model for filter.', response);
+    console.log('Respuesta recibida del modelo para filtro.', response);
     
-    return handleApiResponse(response, 'filter');
+    return handleApiResponse(response, 'filtro');
 };
 
 /**
@@ -148,7 +149,7 @@ export const generateAdjustedImage = async (
     originalImage: File,
     adjustmentPrompt: string,
 ): Promise<string> => {
-    console.log(`Starting global adjustment generation: ${adjustmentPrompt}`);
+    console.log(`Iniciando ajuste global: ${adjustmentPrompt}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
@@ -166,14 +167,14 @@ Safety & Ethics Policy:
 Output: Return ONLY the final adjusted image. Do not return text.`;
     const textPart = { text: prompt };
 
-    console.log('Sending image and adjustment prompt to the model...');
+    console.log('Enviando imagen y ajuste al modelo...');
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [originalImagePart, textPart] },
     });
-    console.log('Received response from model for adjustment.', response);
+    console.log('Respuesta recibida del modelo para ajuste.', response);
     
-    return handleApiResponse(response, 'adjustment');
+    return handleApiResponse(response, 'ajuste');
 };
 
 /**
@@ -184,9 +185,9 @@ Output: Return ONLY the final adjusted image. Do not return text.`;
  */
 export const generateAdVariation = async (
     originalImage: File,
-    type: 'Studio' | 'Lighting' | 'Urban' | 'Nature' | 'Creative'
+    type: 'Studio' | 'Lighting' | 'Simple' | 'Nature' | 'Creative'
 ): Promise<string> => {
-    console.log(`Starting ad variation generation: ${type}`);
+    console.log(`Iniciando variación de anuncio: ${type}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
@@ -199,8 +200,8 @@ export const generateAdVariation = async (
         case 'Lighting':
             userPrompt = "Change the lighting to be dramatic, golden-hour sunlight coming from the side to enhance the subject's appeal. Keep the composition exactly the same.";
             break;
-        case 'Urban':
-            userPrompt = "Place the subject in a modern urban city environment with soft bokeh (blurred background) of city lights at dusk. Make it look like a lifestyle ad.";
+        case 'Simple':
+            userPrompt = "Change the background to a pleasing solid, soft pastel or neutral color that complements the subject. Keep the lighting natural and the subject exactly as is. Do not add complex details.";
             break;
         case 'Nature':
             userPrompt = "Place the subject in a peaceful nature setting with greenery and soft daylight, creating an organic and fresh vibe.";
@@ -221,14 +222,14 @@ Output: Return ONLY the final image.`;
 
     const textPart = { text: prompt };
 
-    console.log('Sending image and ad prompt to the model...');
+    console.log('Enviando imagen y prompt de anuncio al modelo...');
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [originalImagePart, textPart] },
     });
-    console.log(`Received response from model for ${type}.`, response);
+    console.log(`Respuesta recibida del modelo para ${type}.`, response);
     
-    return handleApiResponse(response, `ad-variation-${type}`);
+    return handleApiResponse(response, `variacion-ad-${type}`);
 };
 
 /**
@@ -241,7 +242,7 @@ export const generateResizedImage = async (
     originalImage: File,
     targetRatio: '1:1' | '4:5' | '9:16'
 ): Promise<string> => {
-    console.log(`Starting magic resize to: ${targetRatio}`);
+    console.log(`Iniciando redimensión mágica a: ${targetRatio}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     const originalImagePart = await fileToPart(originalImage);
 
@@ -266,5 +267,5 @@ The result must be high quality and photorealistic.`;
         }
     });
 
-    return handleApiResponse(response, 'resize');
+    return handleApiResponse(response, 'redimensión');
 }

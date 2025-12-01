@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -23,11 +24,22 @@ const Header: React.FC<HeaderProps> = ({ viewMode, setViewMode }) => {
         <div className="flex items-center gap-3">
             <SparkleIcon className="w-6 h-6 text-blue-400" />
             <h1 className="text-xl font-bold tracking-tight text-gray-100">
-              Pixshop
+              CalmEditor
             </h1>
         </div>
 
         <div className="flex bg-gray-900/50 p-1 rounded-lg border border-gray-700/50">
+           <button
+            onClick={() => setViewMode('generator')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              viewMode === 'generator'
+                ? 'bg-blue-600/20 text-blue-200 border border-blue-500/30 shadow-sm'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <LayoutGridIcon className="w-4 h-4" />
+            Generador de Ad
+          </button>
           <button
             onClick={() => setViewMode('editor')}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
@@ -37,18 +49,7 @@ const Header: React.FC<HeaderProps> = ({ viewMode, setViewMode }) => {
             }`}
           >
             <MagicWandIcon className="w-4 h-4" />
-            Photo Editor
-          </button>
-          <button
-            onClick={() => setViewMode('generator')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              viewMode === 'generator'
-                ? 'bg-blue-600/20 text-blue-200 border border-blue-500/30 shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <LayoutGridIcon className="w-4 h-4" />
-            Ad Generator
+            Editor de Ad
           </button>
         </div>
       </div>
