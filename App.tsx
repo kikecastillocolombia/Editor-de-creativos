@@ -16,6 +16,7 @@ import CropPanel from './components/CropPanel';
 import { UndoIcon, RedoIcon, EyeIcon, UploadIcon, ResizeIcon } from './components/icons';
 import StartScreen from './components/StartScreen';
 import MagicResizeModal from './components/MagicResizeModal';
+import ChatBot from './components/ChatBot';
 
 // Helper to convert a data URL string to a File object
 const dataURLtoFile = (dataurl: string, filename: string): File => {
@@ -725,6 +726,7 @@ const App: React.FC = () => {
       <main className={`flex-grow w-full max-w-[1600px] mx-auto p-4 md:p-8 flex justify-center ${currentImage || (viewMode === 'generator' && adBaseImage) ? 'items-start' : 'items-center'}`}>
         {viewMode === 'editor' ? renderEditor() : renderAdGenerator()}
       </main>
+      <ChatBot />
     </div>
   );
 };
