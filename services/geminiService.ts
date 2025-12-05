@@ -178,45 +178,29 @@ Output: Return ONLY the final adjusted image. Do not return text.`;
 };
 
 /**
- * Generates an advertising variation of an image.
+ * Generates an advertising variation of an image based on a specific prompt.
  * @param originalImage The original image file.
- * @param type The type of variation to generate.
+ * @param instruction Specific instruction for the variation (e.g. "Change background to white").
  * @returns A promise that resolves to the data URL of the generated image.
  */
 export const generateAdVariation = async (
     originalImage: File,
-    type: 'Studio' | 'Lighting' | 'Simple' | 'Nature' | 'Creative'
+    instruction: string
 ): Promise<string> => {
-    console.log(`Iniciando variación de anuncio: ${type}`);
+    console.log(`Iniciando variación de anuncio con instrucción: ${instruction}`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
     
-    let userPrompt = "";
-    switch (type) {
-        case 'Studio':
-            userPrompt = "Change the background to a minimalist, high-end clean studio setting (white or light grey) suitable for e-commerce. Keep the main product/subject exactly as is.";
-            break;
-        case 'Lighting':
-            userPrompt = "Change the lighting to be dramatic, golden-hour sunlight coming from the side to enhance the subject's appeal. Keep the composition exactly the same.";
-            break;
-        case 'Simple':
-            userPrompt = "Change the background to a pleasing solid, soft pastel or neutral color that complements the subject. Keep the lighting natural and the subject exactly as is. Do not add complex details.";
-            break;
-        case 'Nature':
-            userPrompt = "Place the subject in a peaceful nature setting with greenery and soft daylight, creating an organic and fresh vibe.";
-            break;
-        case 'Creative':
-            userPrompt = "Change the background to a bold, solid color (like electric blue or vibrant orange) with simple modern geometric shapes. Make it look like a pop-art advertisement.";
-            break;
-    }
+    const prompt = `You are an expert advertising designer AI. Your task is to create a SINGLE variation of the provided image for a Meta (Facebook/Instagram) ad based on the following instruction.
 
-    const prompt = `You are an expert advertising designer AI. Your task is to create a variation of the provided image for a Meta (Facebook/Instagram) ad.
-Task: ${userPrompt}
+Instruction: "${instruction}"
 
 Crucial Guidelines:
-- PRESERVE THE MAIN SUBJECT: The product or person in the foreground must remain recognizable and intact.
-- High Quality: The output must be high resolution and photorealistic.
+1. FOCUS ONLY ON THE REQUESTED CHANGE. Keep all other aspects of the image (lighting, product, angles) as close to the original as possible unless the instruction implies changing them.
+2. PRESERVE THE MAIN SUBJECT/PRODUCT: The product or person in the foreground must remain recognizable and intact.
+3. High Quality: The output must be high resolution and photorealistic.
+4. If asked for text, make it legible, short, and punchy.
 
 Output: Return ONLY the final image.`;
 
@@ -227,9 +211,9 @@ Output: Return ONLY the final image.`;
         model: 'gemini-2.5-flash-image',
         contents: { parts: [originalImagePart, textPart] },
     });
-    console.log(`Respuesta recibida del modelo para ${type}.`, response);
+    console.log(`Respuesta recibida del modelo para variación.`, response);
     
-    return handleApiResponse(response, `variacion-ad-${type}`);
+    return handleApiResponse(response, `variacion-ad`);
 };
 
 /**

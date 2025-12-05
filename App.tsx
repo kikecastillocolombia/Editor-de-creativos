@@ -37,10 +37,63 @@ const dataURLtoFile = (dataurl: string, filename: string): File => {
 
 type Tab = 'retouch' | 'adjust' | 'filters' | 'crop';
 type ViewMode = 'editor' | 'generator';
-type VariationType = 'Studio' | 'Lighting' | 'Simple' | 'Nature' | 'Creative';
+
+// Define ad strategies with their potential prompts
+const AD_STRATEGIES = {
+    'Texto': [
+        "Add a short, punchy headline in English (max 4 words) at the top like 'BEST SELLER' or 'NEW ARRIVAL'.",
+        "Add text overlaid that emphasizes a benefit (e.g., 'Fast Results' or 'High Quality').",
+        "Place a bold promotional text at the bottom saying 'Shop Now'.",
+        "Remove any existing text and keep the product clean and minimalist."
+    ],
+    'Fondo': [
+        "Change the background to a solid dark color (like matte black or navy) to make the product pop.",
+        "Change the background to a solid light pastel color for a soft look.",
+        "Change the background to a vibrant brand color like bright yellow or red.",
+        "Set the background to pure clean white, DTC style.",
+        "Add a subtle texture to the background like concrete or marble."
+    ],
+    'CTA': [
+        "Add a visible 'Shop Now' button graphic in the bottom right corner.",
+        "Add a textual Call to Action 'Discover More' in a stylish font.",
+        "Add an 'Offer Ends Soon' element in the top corner."
+    ],
+    'Producto': [
+        "Zoom in slightly on the product to show more detail.",
+        "Show the product in a lifestyle context (e.g., on a table, in a hand).",
+        "Give the product a 3D mockup feel with dynamic lighting."
+    ],
+    'Composición': [
+        "Center the product perfectly with symmetrical spacing.",
+        "Place the product to one side leaving negative space for text on the other.",
+        "Add a thin elegant frame or border around the image."
+    ],
+    'Prueba Social': [
+        "Add a graphic overlay of 5 stars (⭐⭐⭐⭐⭐) to suggest high ratings.",
+        "Add a small badge saying 'Customer Favorite'.",
+        "Add a short quote visual saying 'Highly Recommended'."
+    ],
+    'Urgencia': [
+        "Add a 'Limited Edition' label.",
+        "Add a 'Flash Sale -20%' badge.",
+        "Add a 'Today Only' sticker graphic."
+    ],
+    'Color': [
+        "Increase the saturation and vibrance of the product colors.",
+        "Change the color palette to be warm (golden hour tones).",
+        "Change the color palette to be cool and sleek (blues and silvers)."
+    ],
+    'Simple': [
+        "Simple variation: Solid contrasting background color.",
+        "Simple variation: Minimalist with no text or distractions.",
+        "Simple variation: Add a simple border."
+    ]
+};
 
 interface VariationResult {
-  type: VariationType;
+  id: string;
+  label: string;
+  prompt: string;
   url: string | null;
   loading: boolean;
   error: string | null;
@@ -68,22 +121,8 @@ const App: React.FC = () => {
   // --- AD GENERATOR STATE ---
   const [adBaseImage, setAdBaseImage] = useState<File | null>(null);
   const [adBaseImageUrl, setAdBaseImageUrl] = useState<string | null>(null);
-  const [variations, setVariations] = useState<VariationResult[]>([
-    { type: 'Studio', url: null, loading: false, error: null },
-    { type: 'Lighting', url: null, loading: false, error: null },
-    { type: 'Simple', url: null, loading: false, error: null },
-    { type: 'Nature', url: null, loading: false, error: null },
-    { type: 'Creative', url: null, loading: false, error: null },
-  ]);
-
-  // Translate variation types for display
-  const variationLabels: Record<VariationType, string> = {
-      'Studio': 'Estudio Minimalista',
-      'Lighting': 'Iluminación Solar',
-      'Simple': 'Color Sólido',
-      'Nature': 'Naturaleza',
-      'Creative': 'Creativo Pop-Art'
-  };
+  const [customAdPrompt, setCustomAdPrompt] = useState('');
+  const [variations, setVariations] = useState<VariationResult[]>([]);
 
   // Magic Resize State
   const [resizeModalOpen, setResizeModalOpen] = useState(false);
@@ -160,44 +199,69 @@ const App: React.FC = () => {
     
     // Also set as ad base image and reset variations
     setAdBaseImage(file);
-    setVariations(prev => prev.map(v => ({ ...v, url: null, loading: false, error: null })));
+    setVariations([]);
   }, [loadFileIntoEditor]);
 
   const handleAdImageUpload = (file: File) => {
     // Only reset variations and base image, let user explicitly click generate
     setAdBaseImage(file);
-    setVariations(prev => prev.map(v => ({ ...v, url: null, loading: false, error: null })));
+    setVariations([]);
     
     // Also load into editor in background so if they switch tabs it's ready
     loadFileIntoEditor(file);
   };
 
-  const handleGenerateVariations = async () => {
+  const createVariation = (label: string, prompt: string): VariationResult => ({
+      id: crypto.randomUUID(),
+      label,
+      prompt,
+      url: null,
+      loading: true,
+      error: null
+  });
+
+  const processVariation = async (variation: VariationResult) => {
+      if (!adBaseImage) return;
+      try {
+          const url = await generateAdVariation(adBaseImage, variation.prompt);
+          setVariations(prev => prev.map(v => v.id === variation.id ? { ...v, url, loading: false } : v));
+      } catch (e: any) {
+          setVariations(prev => prev.map(v => v.id === variation.id ? { ...v, error: e.message || 'Error', loading: false } : v));
+      }
+  };
+
+  const handleGenerateCustom = () => {
+      if (!customAdPrompt.trim()) return;
+      const newVariation = createVariation('Personalizado', customAdPrompt);
+      setVariations(prev => [newVariation, ...prev]); // Add to top
+      processVariation(newVariation);
+      setCustomAdPrompt('');
+  };
+
+  const handleGenerateStrategy = (category: keyof typeof AD_STRATEGIES) => {
+      const prompts = AD_STRATEGIES[category];
+      const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+      
+      const newVariation = createVariation(category, randomPrompt);
+      setVariations(prev => [newVariation, ...prev]);
+      processVariation(newVariation);
+  };
+
+  const handleGenerateMix = () => {
     if (!adBaseImage) return;
 
-    // Reset states
-    setVariations(prev => prev.map(v => ({ ...v, loading: true, error: null, url: null })));
+    // Pick 5 distinct categories randomly
+    const categories = Object.keys(AD_STRATEGIES) as (keyof typeof AD_STRATEGIES)[];
+    const shuffledCats = categories.sort(() => 0.5 - Math.random()).slice(0, 5);
 
-    const generateSingleVariation = async (index: number) => {
-      const variation = variations[index];
-      try {
-        const url = await generateAdVariation(adBaseImage, variation.type);
-        setVariations(prev => {
-          const next = [...prev];
-          next[index] = { ...next[index], url, loading: false };
-          return next;
-        });
-      } catch (e: any) {
-         setVariations(prev => {
-          const next = [...prev];
-          next[index] = { ...next[index], error: e.message || 'Falló', loading: false };
-          return next;
-        });
-      }
-    };
+    const newVariations = shuffledCats.map(cat => {
+        const prompts = AD_STRATEGIES[cat];
+        const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+        return createVariation(cat, randomPrompt);
+    });
 
-    // Trigger all in parallel
-    variations.forEach((_, index) => generateSingleVariation(index));
+    setVariations(prev => [...newVariations, ...prev]);
+    newVariations.forEach(v => processVariation(v));
   };
 
   const handleEditVariation = (url: string) => {
@@ -426,7 +490,7 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center w-full min-h-[50vh] p-8">
                 <div className="max-w-xl text-center space-y-6">
                     <h2 className="text-3xl font-bold text-gray-100">Generador de Variaciones para Meta</h2>
-                    <p className="text-gray-400">Sube tu creativo para generar automáticamente 5 variaciones distintas y de alta calidad optimizadas para publicidad. Cambia fondos, iluminación y estilo con un solo clic.</p>
+                    <p className="text-gray-400">Sube tu creativo para generar automáticamente variaciones de alto rendimiento. Optimiza fondos, textos, CTAs y más.</p>
                      <div className="flex flex-col items-center gap-4">
                         <label className="relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-blue-600 rounded-full cursor-pointer hover:bg-blue-500 transition-colors">
                             <UploadIcon className="w-6 h-6 mr-3" />
@@ -440,79 +504,141 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="w-full max-w-6xl mx-auto flex flex-col gap-8 animate-fade-in pb-12">
-            <div className="flex flex-col md:flex-row gap-8 items-start">
-                 {/* Original Image Section */}
-                <div className="w-full md:w-1/3 flex flex-col gap-4">
-                     <h3 className="text-xl font-bold text-gray-200">Creativo Original</h3>
-                     <div className="relative rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-black/20 group">
-                         {adBaseImageUrl && <img src={adBaseImageUrl} alt="Original" className="w-full h-auto object-cover" />}
-                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                             <button 
-                                onClick={() => adBaseImage && handleOpenMagicResize(adBaseImage)}
-                                className="bg-purple-600/90 text-white font-semibold px-4 py-2 rounded-full text-sm hover:bg-purple-500 flex items-center gap-2"
-                             >
-                                <ResizeIcon className="w-4 h-4" />
-                                Redimensión Mágica
-                             </button>
-                         </div>
+        <div className="w-full max-w-7xl mx-auto flex flex-col gap-8 animate-fade-in pb-12">
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+                 {/* Left Column: Original + Controls */}
+                <div className="w-full lg:w-1/3 flex flex-col gap-6">
+                     
+                     {/* Original Image */}
+                     <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Creativo Original</h3>
+                        <div className="relative rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-black/20 group">
+                            {adBaseImageUrl && <img src={adBaseImageUrl} alt="Original" className="w-full h-auto object-cover max-h-[400px]" />}
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                <button 
+                                    onClick={() => adBaseImage && handleOpenMagicResize(adBaseImage)}
+                                    className="bg-purple-600/90 text-white font-semibold px-4 py-2 rounded-full text-sm hover:bg-purple-500 flex items-center gap-2"
+                                >
+                                    <ResizeIcon className="w-4 h-4" />
+                                    Redimensión Mágica
+                                </button>
+                            </div>
+                        </div>
+                        <button onClick={handleUploadNew} className="text-xs text-gray-500 hover:text-white underline text-center mt-1">Subir Otra Imagen</button>
                      </div>
+
+                     {/* Custom Input */}
+                     <div className="bg-gray-800/40 p-4 rounded-xl border border-gray-700/50">
+                        <h3 className="text-sm font-bold text-gray-300 mb-2">Variación Alternativa</h3>
+                        <div className="flex flex-col gap-2">
+                             <textarea 
+                                value={customAdPrompt}
+                                onChange={(e) => setCustomAdPrompt(e.target.value)}
+                                placeholder="Describe el cambio específico (ej. 'Pon el producto sobre arena de playa')..."
+                                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-gray-200 focus:ring-1 focus:ring-blue-500 outline-none resize-none h-20"
+                             />
+                             <button 
+                                onClick={handleGenerateCustom}
+                                disabled={!customAdPrompt.trim()}
+                                className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+                             >
+                                Generar Personalizada
+                             </button>
+                        </div>
+                     </div>
+
+                     {/* Quick Actions Grid */}
+                     <div className="bg-gray-800/40 p-4 rounded-xl border border-gray-700/50">
+                        <h3 className="text-sm font-bold text-gray-300 mb-3">Cambios Rápidos (Aleatorios)</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                             {Object.keys(AD_STRATEGIES).map((strategy) => (
+                                 <button
+                                    key={strategy}
+                                    onClick={() => handleGenerateStrategy(strategy as keyof typeof AD_STRATEGIES)}
+                                    className="bg-gray-900 hover:bg-gray-800 border border-gray-700 text-gray-300 py-2 px-2 rounded-lg text-xs font-medium transition-colors text-center"
+                                 >
+                                    {strategy}
+                                 </button>
+                             ))}
+                        </div>
+                     </div>
+
+                     {/* Generate Bundle Button */}
                      <button 
-                        onClick={handleGenerateVariations}
-                        disabled={variations.some(v => v.loading)}
-                        className="w-full bg-gradient-to-br from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-4 px-6 rounded-lg shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleGenerateMix}
+                        className="w-full bg-gradient-to-br from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex flex-col items-center"
                      >
-                        {variations.some(v => v.loading) ? 'Generando...' : 'Generar 5 Variaciones'}
+                        <span>Generar Mix Automático</span>
+                        <span className="text-xs font-normal opacity-80 mt-1">(5 Variaciones Aleatorias)</span>
                      </button>
-                     <button onClick={handleUploadNew} className="text-sm text-gray-400 hover:text-white underline text-center">Subir Otra Imagen</button>
                 </div>
 
-                {/* Grid Section */}
-                 <div className="w-full md:w-2/3 flex flex-col gap-4">
-                    <h3 className="text-xl font-bold text-gray-200">Variaciones de Ad</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {variations.map((variation, idx) => (
-                            <div key={variation.type} className="flex flex-col gap-2 bg-gray-800/40 p-3 rounded-xl border border-gray-700/50">
-                                <span className="text-sm font-semibold text-gray-300">{variationLabels[variation.type]}</span>
-                                <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-gray-900/50 flex items-center justify-center group">
-                                    {variation.loading ? (
-                                        <Spinner />
-                                    ) : variation.url ? (
-                                        <>
-                                            <img src={variation.url} alt={variation.type} className="w-full h-full object-cover" />
-                                            {/* Hover Overlay */}
-                                            <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
-                                                <button 
-                                                    onClick={() => handleEditVariation(variation.url!)}
-                                                    className="w-full bg-white/90 text-black font-semibold px-4 py-2 rounded-lg text-xs hover:bg-white"
-                                                >
-                                                    Editar / Recortar
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleOpenMagicResize(variation.url!)}
-                                                    className="w-full bg-purple-600/90 text-white font-semibold px-4 py-2 rounded-lg text-xs hover:bg-purple-500 flex items-center justify-center gap-2"
-                                                >
-                                                    <ResizeIcon className="w-3 h-3" />
-                                                    Redimensión
-                                                </button>
-                                                <a 
-                                                    href={variation.url} 
-                                                    download={`ad-variation-${variation.type}.png`}
-                                                    className="text-gray-300 text-xs hover:underline mt-1"
-                                                >
-                                                    Descargar
-                                                </a>
+                {/* Right Column: Dynamic Grid */}
+                 <div className="w-full lg:w-2/3 flex flex-col gap-4">
+                    <h3 className="text-xl font-bold text-gray-200">Resultados ({variations.length})</h3>
+                    {variations.length === 0 ? (
+                        <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-gray-700 rounded-xl text-gray-500">
+                            <p>Tus variaciones aparecerán aquí.</p>
+                            <p className="text-sm">Usa los botones de la izquierda para comenzar.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {variations.map((variation) => (
+                                <div key={variation.id} className="flex flex-col gap-2 bg-gray-800/40 p-3 rounded-xl border border-gray-700/50 animate-fade-in">
+                                    <div className="flex justify-between items-start">
+                                        <span className="text-sm font-bold text-gray-200 truncate pr-2" title={variation.label}>{variation.label}</span>
+                                        {/* Tooltip for full prompt */}
+                                        <div className="relative group/info">
+                                            <div className="w-4 h-4 rounded-full bg-gray-700 text-gray-400 flex items-center justify-center text-[10px] cursor-help">?</div>
+                                            <div className="absolute right-0 top-6 w-48 bg-black/90 text-gray-300 text-xs p-2 rounded shadow-xl opacity-0 group-hover/info:opacity-100 pointer-events-none z-20">
+                                                {variation.prompt}
                                             </div>
-                                        </>
-                                    ) : variation.error ? (
-                                        <div className="text-red-400 text-xs text-center p-2">{variation.error}</div>
-                                    ) : (
-                                        <div className="text-gray-600 text-xs text-center">Esperando para generar</div>
-                                    )}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-gray-900/50 flex items-center justify-center group">
+                                        {variation.loading ? (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Spinner />
+                                                <span className="text-xs text-gray-400 animate-pulse">Creando...</span>
+                                            </div>
+                                        ) : variation.url ? (
+                                            <>
+                                                <img src={variation.url} alt={variation.label} className="w-full h-full object-cover" />
+                                                {/* Hover Overlay */}
+                                                <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
+                                                    <button 
+                                                        onClick={() => handleEditVariation(variation.url!)}
+                                                        className="w-full bg-white/90 text-black font-semibold px-4 py-2 rounded-lg text-xs hover:bg-white"
+                                                    >
+                                                        Editar / Recortar
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleOpenMagicResize(variation.url!)}
+                                                        className="w-full bg-purple-600/90 text-white font-semibold px-4 py-2 rounded-lg text-xs hover:bg-purple-500 flex items-center justify-center gap-2"
+                                                    >
+                                                        <ResizeIcon className="w-3 h-3" />
+                                                        Redimensión
+                                                    </button>
+                                                    <a 
+                                                        href={variation.url} 
+                                                        download={`ad-variation-${variation.label}.png`}
+                                                        className="text-gray-300 text-xs hover:underline mt-1"
+                                                    >
+                                                        Descargar
+                                                    </a>
+                                                </div>
+                                            </>
+                                        ) : variation.error ? (
+                                            <div className="text-red-400 text-xs text-center p-2 bg-red-900/20 rounded border border-red-900/50 w-full mx-2">
+                                                {variation.error}
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                  </div>
             </div>
             
